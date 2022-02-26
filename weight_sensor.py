@@ -36,7 +36,7 @@ hx.tare()
 print("Ready!")
 
 weight = hx.get_weight(5)
-error = 10000
+error = 5
 while True:
     try:
         current_weight = hx.get_weight(5)
