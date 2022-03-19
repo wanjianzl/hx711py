@@ -4,6 +4,10 @@ import sys
 from pygame import mixer
 from hx711 import HX711
 import RPi.GPIO as GPIO
+from picamera import PiCamera
+import LCD1602
+
+camera = PiCamera()
     
 LedPin = 17 # LED light GIPO Number
  
@@ -14,6 +18,9 @@ def initialize():
     GPIO.setup(LedPin, GPIO.OUT, initial=GPIO.HIGH) # This makes the LED light off
  
     mixer.init() # initialize speaker mixer
+    
+    
+    LCD1602.init(0x27, 1) # initialize LCD display
  
     hx = HX711(24, 18) # Config weight sensor GPIO numbers
     hx.set_reading_format("MSB", "MSB") # Config how sensor read the signal
@@ -31,8 +38,15 @@ def initialize():
     hx.reset()
     hx.tare()
  
-    print("Ready!")
+    LCD1602.write(0, 0, 'Ready!')
+    
     return hx
+
+def takePicture(pic):
+    try:
+        camera.capture(pic)
+    finally:
+        pass
  
 # Clean up GPIO, speaker mixer, LED light and exit application
 def cleanAndExit():
@@ -40,7 +54,8 @@ def cleanAndExit():
     mixer.music.stop()
     GPIO.output(LedPin, GPIO.HIGH) # light off
     GPIO.cleanup()
-    print("Bye!")
+    camera.stop_preview()
+    LCD1602.write(0, 0, 'Bye!')
     sys.exit()
  
 # Play dingdong sound
@@ -48,12 +63,16 @@ def playDingdong():
     mixer.music.load('/home/pi/hx711py/dingdong.mp3')
     mixer.music.set_volume(1.0)
     mixer.music.play()
+    LCD1602.write(0, 0, 'Thank you!')
+    takePicture('/home/pi/dingdong.jpg')
     
 # Play alarm sound
 def playAlarm():
     mixer.music.load('/home/pi/hx711py/burglar-alarm-sound.mp3')
     mixer.music.set_volume(1.0)
     mixer.music.play()
+    LCD1602.write(0, 0, 'Watch out!')
+    takePicture('/home/pi/alarm.jpg')
     lightOn()
  
 # Blink LED light 10 times in case of alarming
@@ -72,16 +91,15 @@ while True:
         current_weight = hx.get_weight(5) # Get current weight by average 5 times
         print('current_weight:', current_weight)
         if current_weight - weight > error: # If someone put the package on the mat
-            print('Ding,Dong!!!')
             playDingdong()
             weight = current_weight
         elif weight - current_weight > error: # Else if someone steal the package from the mat
-            print('Alarm!!!')
             playAlarm()
             weight = current_weight
             
         time.sleep(1) # Wait 1 second then loop again
- 
-    finally:
+    except:
+        import traceback
+        traceback.print_exc()
         cleanAndExit() # in case of any error, do the clean up and exit
         
