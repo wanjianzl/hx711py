@@ -6,6 +6,7 @@ from hx711 import HX711
 import RPi.GPIO as GPIO
 from picamera import PiCamera
 import LCD1602
+import requests
 
 camera = PiCamera()
     
@@ -57,6 +58,25 @@ def cleanAndExit():
     camera.stop_preview()
     LCD1602.write(0, 0, 'Bye!')
     sys.exit()
+
+# Notify mobile phone
+def notifyMobile():
+    url = 'http://0.0.0.0:8080/trigger_alert'
+    try:
+        requests.get(url)
+    finally:
+        pass
+
+# Get Packages data and return true if questionable for misdelivery
+def checkMisDeliverytPackages():
+    url = 'http://0.0.0.0:8080/get'
+    try:
+        packages = requests.get(url).text
+        if "exception" in packages:
+            return True
+    finally:
+        pass
+    return False
  
 # Play dingdong sound
 def playDingdong():
@@ -71,9 +91,12 @@ def playAlarm():
     mixer.music.load('/home/pi/hx711py/burglar-alarm-sound.mp3')
     mixer.music.set_volume(1.0)
     mixer.music.play()
+    notifyMobile()
     LCD1602.write(0, 0, 'Watch out!')
     takePicture('/home/pi/alarm.jpg')
     lightOn()
+
+# TODO: schedule a timer to scan packages info and if 
  
 # Blink LED light 10 times in case of alarming
 def lightOn():
@@ -88,6 +111,9 @@ weight = hx.get_weight(5) # Get weight by average 5 times
 error = 50 # Tolerance for weight sensor, because weight sensor is not accurate
 while True:
     try:
+        if checkMisDeliverytPackages:
+            # TODO: blink yellow LED and print MisDelivery in LCD
+            pass
         current_weight = hx.get_weight(5) # Get current weight by average 5 times
         print('current_weight:', current_weight)
         if current_weight - weight > error: # If someone put the package on the mat
@@ -96,7 +122,7 @@ while True:
         elif weight - current_weight > error: # Else if someone steal the package from the mat
             playAlarm()
             weight = current_weight
-            
+        
         time.sleep(1) # Wait 1 second then loop again
     except:
         import traceback
